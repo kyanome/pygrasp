@@ -6,9 +6,10 @@ import os
 
 
 class Robot(object):
-	def __init__(self, workspace_limits, config_file):
+	def __init__(self, workspace_limits, config_file, fixed_obj_coord=False):
 
 		self.workspace_limits = workspace_limits
+		self.fixed_obj_coord = fixed_obj_coord
 
 		# If in simulation...
 		self.obj_mesh_dir = os.path.abspath('./simulation/blocks')
@@ -165,14 +166,23 @@ class Robot(object):
 				obj_label = obj_label + str(c_blocks)
 			self.object_names.append(obj_label)
 
-			mesh_file = os.path.join(self.obj_mesh_dir, np.random.choice(self.mesh_list))
-			drop_x = (self.workspace_limits[0][1] - self.workspace_limits[0][0] - 0.2) * np.random.random_sample() + \
-						self.workspace_limits[0][0] + 0.1
-			drop_y = (self.workspace_limits[1][1] - self.workspace_limits[1][0] - 0.2) * np.random.random_sample() + \
-						self.workspace_limits[1][0] + 0.1
-			object_position = [drop_x, drop_y, 0.1]
-			object_orientation = [2 * np.pi * np.random.random_sample(), 2 * np.pi * np.random.random_sample(),
-									2 * np.pi * np.random.random_sample()]
+			if self.fixed_obj_coord == True:
+				mesh_file = os.path.join(self.obj_mesh_dir, self.mesh_list[0])
+				drop_x = (self.workspace_limits[0][1] - self.workspace_limits[0][0] - 0.2) + \
+							self.workspace_limits[0][0] + 0.1
+				drop_y = (self.workspace_limits[1][1] - self.workspace_limits[1][0] - 0.2)  + \
+							self.workspace_limits[1][0] + 0.1
+				object_position = [drop_x, drop_y, 0.1]
+				object_orientation = [2 * np.pi, 2 * np.pi, 2 * np.pi]
+			else:
+				mesh_file = os.path.join(self.obj_mesh_dir, np.random.choice(self.mesh_list))
+				drop_x = (self.workspace_limits[0][1] - self.workspace_limits[0][0] - 0.2) * np.random.random_sample() + \
+							self.workspace_limits[0][0] + 0.1
+				drop_y = (self.workspace_limits[1][1] - self.workspace_limits[1][0] - 0.2) * np.random.random_sample() + \
+							self.workspace_limits[1][0] + 0.1
+				object_position = [drop_x, drop_y, 0.1]
+				object_orientation = [2 * np.pi * np.random.random_sample(), 2 * np.pi * np.random.random_sample(),
+										2 * np.pi * np.random.random_sample()]
 
 
 			ret_resp, ret_ints, ret_floats, ret_strings, ret_buffer = vrep.simxCallScriptFunction(self.sim_client,
@@ -318,10 +328,10 @@ class Robot(object):
 
 
 if __name__ == "__main__":
-	config_file = 'simulation/random/random-3blocks.txt'
+	config_file = 'simulation/random/random-1blocks.txt'
 	workspace_limits = np.asarray([[-0.724, -0.276], [-0.224, 0.224], [-0.0001, 0.4]])
-	robot = Robot(workspace_limits, config_file)
+	robot = Robot(workspace_limits, config_file, fixed_obj_coord=True)
 
-	position = np.array([-0.441, -0.1057, 0.0234])
-	orientation = -0.126
+	position = np.array([-0.426, 0.124, 0.05])
+	orientation = 30
 	robot.grasp(position, orientation, workspace_limits)
