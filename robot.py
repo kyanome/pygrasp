@@ -334,5 +334,4 @@ if __name__ == "__main__":
 
 	position = np.array([-0.6273, -0.127, 0.05])
 	orientation = 30
-	
 	robot.grasp(position, orientation, workspace_limits)
