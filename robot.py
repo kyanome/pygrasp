@@ -332,6 +332,7 @@ if __name__ == "__main__":
 	workspace_limits = np.asarray([[-0.724, -0.276], [-0.224, 0.224], [-0.0001, 0.4]])
 	robot = Robot(workspace_limits, config_file, fixed_obj_coord=True)
 
-	position = np.array([-0.426, 0.124, 0.05])
+	position = np.array([-0.6273, -0.127, 0.05])
 	orientation = 30
+	
 	robot.grasp(position, orientation, workspace_limits)
