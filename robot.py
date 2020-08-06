@@ -169,7 +169,7 @@ class Robot(object):
 			if self.fixed_obj_coord == True:
 				mesh_file = os.path.join(self.obj_mesh_dir, self.mesh_list[0])
 				drop_x = (self.workspace_limits[0][1] - self.workspace_limits[0][0] - 0.2) + \
-							self.workspace_limits[0][0] + 0.1
+							self.workspace_limits[0][0] + 0.2
 				drop_y = (self.workspace_limits[1][1] - self.workspace_limits[1][0] - 0.2)  + \
 							self.workspace_limits[1][0] + 0.1
 				object_position = [drop_x, drop_y, 0.1]
