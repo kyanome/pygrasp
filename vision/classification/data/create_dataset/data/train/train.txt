@@ -1,0 +1,5 @@
+data/train/img_000002.jpg
+data/train/img_000004.jpg
+data/train/img_000005.jpg
+data/train/img_000003.jpg
+data/train/img_000001.jpg
