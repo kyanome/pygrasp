@@ -3,7 +3,7 @@ import numpy as np
 import utils 
 from simulation import vrep
 import os
-
+import math
 
 class Robot(object):
 	def __init__(self, workspace_limits, config_file, fixed_obj_coord=False):
@@ -12,7 +12,7 @@ class Robot(object):
 		self.fixed_obj_coord = fixed_obj_coord
 
 		# If in simulation...
-		self.obj_mesh_dir = os.path.abspath('./simulation/blocks')
+		self.obj_mesh_dir = '/home/keita/Projects/vrep2python/pygrasp/simulation/blocks'
 		self.mesh_list = [f for f in os.listdir(self.obj_mesh_dir) if f.endswith('.obj')]
 
 		# Define colors for object meshes (Tableau palette)
@@ -200,6 +200,20 @@ class Robot(object):
 			self.object_handles.append(ret_ints[0])
 			time.sleep(2)
 
+	def get_ur5_position(self):
+		sim_ret, UR5_target_position = vrep.simxGetObjectPosition(self.sim_client, self.UR5_target_handle, -1,
+																	vrep.simx_opmode_blocking)
+		return UR5_target_position
+
+	def get_ur5_orientation(self):
+		_, gripper_orientation = vrep.simxGetObjectOrientation(self.sim_client, self.UR5_target_handle, -1,
+																		vrep.simx_opmode_blocking)
+		gripper_orientation[0] = math.degrees(gripper_orientation[0])
+		gripper_orientation[1] = math.degrees(gripper_orientation[1])
+		gripper_orientation[2] = math.degrees(gripper_orientation[2])
+		return gripper_orientation
+
+
 	def move_to(self, tool_position, tool_orientation):
 
 		# sim_ret, UR5_target_handle = vrep.simxGetObjectHandle(self.sim_client,'UR5_target',vrep.simx_opmode_blocking)
@@ -242,7 +256,7 @@ class Robot(object):
 	def close_gripper(self):
 
 		gripper_motor_velocity = -0.5
-		gripper_motor_force = 100
+		gripper_motor_force = 300
 		sim_ret, RG2_gripper_handle = vrep.simxGetObjectHandle(self.sim_client, 'RG2_openCloseJoint',
 																vrep.simx_opmode_blocking)
 		sim_ret, gripper_joint_position = vrep.simxGetJointPosition(self.sim_client, RG2_gripper_handle,
@@ -251,7 +265,7 @@ class Robot(object):
 		vrep.simxSetJointTargetVelocity(self.sim_client, RG2_gripper_handle, gripper_motor_velocity,
 										vrep.simx_opmode_blocking)
 		gripper_fully_closed = False
-		while gripper_joint_position > -0.047:  # Block until gripper is fully closed
+		while gripper_joint_position > -0.037:  # Block until gripper is fully closed
 			sim_ret, new_gripper_joint_position = vrep.simxGetJointPosition(self.sim_client, RG2_gripper_handle,
 																			vrep.simx_opmode_blocking)
 			# print(gripper_joint_position)
@@ -325,6 +339,62 @@ class Robot(object):
 		# Check if grasp is successful
 		gripper_full_closed = self.close_gripper()
 		grasp_success = not gripper_full_closed
+
+
+	def rotate_object(self, axis, heightmap_rotation_angle, workspace_limits):
+		#tool_rotation_angle = (heightmap_rotation_angle % np.pi) - np.pi / 2
+		tool_rotation_angle = math.radians(np.float(heightmap_rotation_angle))
+	
+
+		sim_ret, UR5_target_position = vrep.simxGetObjectPosition(self.sim_client, self.UR5_target_handle, -1,
+																	vrep.simx_opmode_blocking)
+
+		# Compute gripper orientation and rotation increments
+		sim_ret, gripper_orientation = vrep.simxGetObjectOrientation(self.sim_client, self.UR5_target_handle, -1,
+																		vrep.simx_opmode_blocking)
+		rotation_step = 0.15 if (tool_rotation_angle - gripper_orientation[axis] > 0) else -0.15
+		num_rotation_steps = int(np.floor((tool_rotation_angle - gripper_orientation[axis]) / rotation_step))
+
+		# Simultaneously move and rotate gripper
+		if axis==0:
+			for step_iter in range(num_rotation_steps):
+				vrep.simxSetObjectOrientation(self.sim_client, self.UR5_target_handle, -1, (
+				gripper_orientation[axis] + rotation_step * min(step_iter, num_rotation_steps), gripper_orientation[1],  gripper_orientation[2]),
+												vrep.simx_opmode_blocking)
+				
+		elif axis==1:
+			for step_iter in range(num_rotation_steps):
+				vrep.simxSetObjectOrientation(self.sim_client, self.UR5_target_handle, -1, (
+				gripper_orientation[0], gripper_orientation[axis] + rotation_step * min(step_iter, num_rotation_steps), gripper_orientation[2]),
+												vrep.simx_opmode_blocking)
+		elif axis==2:
+			for step_iter in range(num_rotation_steps):
+				vrep.simxSetObjectOrientation(self.sim_client, self.UR5_target_handle, -1, (
+				gripper_orientation[0], gripper_orientation[1], gripper_orientation[axis] + rotation_step * min(step_iter, num_rotation_steps)),
+												vrep.simx_opmode_blocking)
+		
+	def move_object(self, tool_position, tool_orientation):
+
+		# sim_ret, UR5_target_handle = vrep.simxGetObjectHandle(self.sim_client,'UR5_target',vrep.simx_opmode_blocking)
+		sim_ret, UR5_target_position = vrep.simxGetObjectPosition(self.sim_client, self.UR5_target_handle, -1,
+																	vrep.simx_opmode_blocking)
+
+		move_direction = np.asarray(
+			[tool_position[0] - UR5_target_position[0], tool_position[1] - UR5_target_position[1],
+				tool_position[2] - UR5_target_position[2]])
+		move_magnitude = np.linalg.norm(move_direction)
+		move_step = 0.02 * move_direction / move_magnitude
+		num_move_steps = int(np.floor(move_magnitude / 0.02))
+
+		for step_iter in range(num_move_steps):
+			vrep.simxSetObjectPosition(self.sim_client, self.UR5_target_handle, -1, (
+			UR5_target_position[0] + move_step[0], UR5_target_position[1] + move_step[1],
+			UR5_target_position[2] + move_step[2]), vrep.simx_opmode_blocking)
+			sim_ret, UR5_target_position = vrep.simxGetObjectPosition(self.sim_client, self.UR5_target_handle, -1,
+																		vrep.simx_opmode_blocking)
+		vrep.simxSetObjectPosition(self.sim_client, self.UR5_target_handle, -1,
+									(tool_position[0], tool_position[1], tool_position[2]),
+									vrep.simx_opmode_blocking)
 
 
 if __name__ == "__main__":
