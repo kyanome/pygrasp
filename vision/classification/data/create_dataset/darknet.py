@@ -46,7 +46,7 @@ class METADATA(Structure):
 class YOLO:
     def __init__(self):
 
-        lib = CDLL("libdarknet.so", RTLD_GLOBAL)
+        lib = CDLL("/home/keita/Projects/vrep2python/pygrasp/vision/classification/data/create_dataset/libdarknet.so", RTLD_GLOBAL)
         lib.network_width.argtypes = [c_void_p]
         lib.network_width.restype = c_int
         lib.network_height.argtypes = [c_void_p]
@@ -115,6 +115,16 @@ class YOLO:
         self.predict_image.argtypes = [c_void_p, IMAGE]
         self.predict_image.restype = POINTER(c_float)
 
+        self.ndarray_image = lib.ndarray_to_image
+        self.ndarray_image.argtypes = [POINTER(c_ubyte), POINTER(c_long), POINTER(c_long)]
+        self.ndarray_image.restype = IMAGE
+
+        self.make_boxes = lib.make_boxes
+        self.make_boxes.argtypes = [c_void_p]
+        self.make_boxes.restype = POINTER(BOX)
+
+
+
     def classify(self, net, meta, im):
         out = self.predict_image(net, im)
         res = []
@@ -142,6 +152,29 @@ class YOLO:
         self.free_image(im)
         self.free_detections(dets, num)
         return res
+
+    def detect_np(self, net, meta, np_img, thresh=.5, hier_thresh=.5, nms=.45):
+        im = self.nparray_to_image(np_img)
+        boxes = self.make_boxes(net)
+        probs = self.make_probs(net)
+        num = num_boxes(net)
+        network_detect(net, im, thresh, hier_thresh, nms, boxes, probs)
+        res = []
+        for j in range(num):
+            for i in range(meta.classes):
+                if probs[j][i] > 0:
+                    res.append((meta.names[i], probs[j][i], (boxes[j].x, boxes[j].y, boxes[j].w, boxes[j].h)))
+        res = sorted(res, key=lambda x: -x[1])
+        self.free_image(im)
+        free_ptrs(cast(probs, POINTER(c_void_p)), num)
+        return res
+
+
+    def nparray_to_image(self, img):
+        data = img.ctypes.data_as(POINTER(c_ubyte))
+        image = ndarray_image(data, img.ctypes.shape, img.ctypes.strides)
+
+        return image
     
 
 if __name__ == "__main__":

@@ -54,6 +54,7 @@ def main():
             optimizer.zero_grad()
             # forward + backward + optimize
             outputs = net(inputs)
+            import pdb; pdb.set_trace()
             loss = criterion(outputs, labels)
             loss.backward()
             optimizer.step()
